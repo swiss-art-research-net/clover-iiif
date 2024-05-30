@@ -1,6 +1,6 @@
 {
   "name": "@samvera/clover-iiif",
-  "version": "2.4.0-rc.0",
+  "version": "2.9.0",
   "description": "Extensible IIIF front-end toolkit and Manifest viewer. Accessible. Composable. Open Source.",
   "files": [
     "dist"
@@ -13,10 +13,20 @@
       "require": "./dist/index.umd.js",
       "types": "./dist/index.d.ts"
     },
+    "./image": {
+      "import": "./dist/image/index.mjs",
+      "require": "./dist/image/index.umd.js",
+      "types": "./dist/image/index.d.ts"
+    },
     "./primitives": {
       "import": "./dist/primitives/index.mjs",
       "require": "./dist/primitives/index.umd.js",
       "types": "./dist/primitives/index.d.ts"
+    },
+    "./scroll": {
+      "import": "./dist/scroll/index.mjs",
+      "require": "./dist/scroll/index.umd.js",
+      "types": "./dist/scroll/index.d.ts"
     },
     "./slider": {
       "import": "./dist/slider/index.mjs",
@@ -27,6 +37,11 @@
       "import": "./dist/viewer/index.mjs",
       "require": "./dist/viewer/index.umd.js",
       "types": "./dist/viewer/index.d.ts"
+    },
+    "./helpers": {
+      "import": "./dist/helpers/index.mjs",
+      "require": "./dist/helpers/index.umd.js",
+      "types": "./dist/helpers/index.d.ts"
     }
   },
   "types": "./dist/index.d.ts",
@@ -60,6 +75,7 @@
     "@iiif/parser": "^1.1.2",
     "@iiif/vault": "^0.9.22",
     "@iiif/vault-helpers": "^0.10.0",
+    "@nulib/use-markdown": "^0.2.1",
     "@radix-ui/react-aspect-ratio": "^1.0.3",
     "@radix-ui/react-collapsible": "^1.0.3",
     "@radix-ui/react-form": "^0.0.3",
@@ -69,9 +85,10 @@
     "@radix-ui/react-switch": "^1.0.3",
     "@radix-ui/react-tabs": "^1.0.4",
     "@stitches/react": "^1.2.8",
+    "flexsearch": "^0.7.43",
     "hls.js": "^1.5.3",
     "node-webvtt": "^1.9.4",
-    "openseadragon": "^2.4.2",
+    "openseadragon": "^4.1.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-error-boundary": "^4.0.12",
@@ -84,6 +101,7 @@
     "@testing-library/jest-dom": "^6.4.1",
     "@testing-library/react": "^14.2.1",
     "@testing-library/user-event": "^14.5.2",
+    "@types/flexsearch": "^0.7.6",
     "@types/node": "20.11.16",
     "@types/openseadragon": "^3.0.10",
     "@types/react": "^18.2.51",

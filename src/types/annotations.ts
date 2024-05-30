@@ -1,6 +1,11 @@
-import { AnnotationPageNormalized } from "@iiif/presentation-3";
+import {
+  Annotation,
+  AnnotationPageNormalized,
+  EmbeddedResource,
+} from "@iiif/presentation-3";
 
 type AnnotationResources = AnnotationPageNormalized[];
+type AnnotationResource = AnnotationPageNormalized;
 
 interface ParsedAnnotationTarget {
   id: string;
@@ -18,4 +23,21 @@ interface ParsedAnnotationTarget {
   t?: string;
 }
 
-export type { AnnotationResources, ParsedAnnotationTarget };
+interface AnnotationFlattened extends Annotation {
+  body: EmbeddedResource;
+}
+
+type ContentSearchQuery = {
+  q: string;
+  motivation?: string;
+  date?: string;
+  user?: string;
+};
+
+export type {
+  AnnotationFlattened,
+  AnnotationResources,
+  AnnotationResource,
+  ParsedAnnotationTarget,
+  ContentSearchQuery,
+};

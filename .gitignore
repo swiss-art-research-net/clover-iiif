@@ -1,6 +1,7 @@
 # dev
 .build
 .next
+.tool-versions
 .vscode/
 dist
 node_modules
@@ -16,3 +17,8 @@ html/
 
 # VSCode
 .vscode/
+
+dist/tsconfig.tsbuildinfo
+tmp
+.env.local
+tsconfig.tsbuildinfo

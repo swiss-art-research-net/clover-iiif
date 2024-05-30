@@ -97,7 +97,7 @@ The Viewer can also be implemented in Vanilla Javascript by use of a web compone
     ```html
     <html>
       <head>
-        <title>Clover IIIF - Web Component</title>
+        <title>Clover IIIF - Viewer - Web Component</title>
         <meta charset="UTF-8" />
       </head>
       <body>
@@ -145,9 +145,11 @@ const MyCustomViewer = () => {
 | Prop                            | Type                                                                        | Required | Default                                  |
 | ------------------------------- | --------------------------------------------------------------------------- | -------- | ---------------------------------------- |
 | `iiifContent`                   | `string`                                                                    | Yes      |                                          |
+| `iiifContentSearchQuery`        | [See Content Search](#content-search)                                       | No       |                                          |
 | `canvasIdCallback`              | `function`                                                                  | No       |                                          |
 | `customDisplays`                | [See Custom Displays](#custom-displays)                                     | No       |                                          |
 | `customTheme`                   | `object`                                                                    | No       |                                          |
+| `plugins`                       | [See Plugins](#plugins)                                                     | No       |                                          |
 | `options`                       | `object`                                                                    | No       |                                          |
 | `options.background`            | `string` [CSS](https://developer.mozilla.org/en-US/docs/Web/CSS/background) | No       | `transparent`                            |
 | `options.canvasBackgroundColor` | `string` [CSS](https://developer.mozilla.org/en-US/docs/Web/CSS/background) | No       | `#1a1d1e`                                |
@@ -156,24 +158,116 @@ const MyCustomViewer = () => {
 | `options.openSeadragon`         | `OpenSeadragon.Options`                                                     | No       |                                          |
 | `options.informationPanel`      | [See Information Panel](#information-panel)                                 | No       |                                          |
 | `options.requestHeaders`        | `IncomingHttpHeaders`                                                       | No       | `{ "Content-Type": "application/json" }` |
+| `options.showDownload`          | `boolean`                                                                   | No       | true                                     |
 | `options.showIIIFBadge`         | `boolean`                                                                   | No       | true                                     |
 | `options.showTitle`             | `boolean`                                                                   | No       | true                                     |
 | `options.withCredentials`       | `boolean`                                                                   | No       | false                                    |
+| `options.contentSearch`         | [See Content Search](#content-search)                                       | No       |                                          |
 
 - Options `canvasBackgroundColor` and `canvasHeight` will apply to both `<video>` elements and the OpenseaDragon canvas.
 - Option `withCredentials` being set as `true` will inform IIIF resource requests to be made [using credentials](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/withCredentials) such as cookies, authorization headers or TLS client certificates.
 - Option `options.openSeadragon` will grant you ability to override the [OpenSeadragon default options](https://openseadragon.github.io/docs/OpenSeadragon.html#.Options) set within the Clover IIIF Viewer to adjust touch and mouse gesture settings and various other configurations.
 
+### Canvas Height
+
+The height of the canvas can be set using the `options.canvasHeight` prop. This prop accepts a string value that is a valid CSS height value. The default value is `500px`.
+
+#### Automatic Height
+
+If the height is set to `auto` or `100%`, the **Viewer** will expand to the height of its wrapping container element. The wrapping element must have a position `relative`, along with a defined `height` for this to display as expected. Be aware to set a `z-index` value of `0` or an applicable value within your consuming application to ensure the viewer does not conflict with other page elements.
+
+```jsx
+export default function App() {
+  const iiifContent =
+    "https://api.dc.library.northwestern.edu/api/v2/works/8a833741-74a8-40dc-bd1d-c416a3b1bb38?as=iiif";
+
+  const options = {
+    canvasHeight: "auto", // or "100%"
+  };
+
+  return (
+    <div style={{ position: "relative", height: "80vh", zIndex: "0" }}>
+      <Viewer iiifContent={iiifContent} options={options} />
+    </div>
+  );
+}
+```
+
 ### Information Panel
 
 The information panel is a collapsible panel that displays information about the current Manifest and renders supplementing resources for the active canvas. It is rendered by default, but can be configured to be hidden or to render only certain tabs.
 
-| Prop                                           | Type      | Required | Default |
-| ---------------------------------------------- | --------- | -------- | ------- |
-| `options.informationPanel.open`                | `boolean` | No       | true    |
-| `options.informationPanel.renderAbout`         | `boolean` | No       | true    |
-| `options.informationPanel.renderSupplementing` | `boolean` | No       | true    |
-| `options.informationPanel.renderToggle`        | `boolean` | No       | true    |
+| Prop                                           | Type                            | Required | Default |
+| ---------------------------------------------- | ------------------------------- | -------- | ------- |
+| `options.informationPanel.open`                | `boolean`                       | No       | true    |
+| `options.informationPanel.vtt.autoScroll`      | [See Auto Scroll](#auto-scroll) | No       | true    |
+| `options.informationPanel.renderAbout`         | `boolean`                       | No       | true    |
+| `options.informationPanel.renderAnnotation`    | `boolean`                       | No       | true    |
+| `options.informationPanel.renderSupplementing` | `boolean`                       | No       | true    |
+| `options.informationPanel.renderToggle`        | `boolean`                       | No       | true    |
+| `options.informationPanel.renderContentSearch` | `boolean`                       | No       | true    |
+| `options.informationPanel.defaultTab`          | `string`                        | No       |         |
+
+If `renderAbout` is true, Clover will use the About tab as the default tab. Use `options.informationPanel.defaultTab` to set the default tab.
+
+If you want content search to be the default tab, use `manifest-content-search`
+
+```jsx
+<Viewer
+  iiifContent="https://example.com/manifest/1"
+  options={{
+    informationPanel: {
+      defaultTab: "manifest-content-search",
+    },
+  }}
+/>
+```
+
+If the manifest has annotations, and you want one of the anotations to be the default tab, use the id from the annotation page.
+
+```json
+{
+  "@context": ["http://iiif.io/api/presentation/3/context.json"],
+  "type": "Manifest",
+   ...
+  "items": [
+    {
+      "id": "http://example.com/manifest/canvas/1",
+      "type": "Canvas",
+      "height": 1000,
+      "width": 2000,
+      "annotations": [
+        {
+          "id": "http://example.com/manifest/annotation/1",
+          "type": "AnnotationPage",
+          "items": [...]
+        }
+      ]
+    }
+  ]
+}
+```
+
+```jsx
+<Viewer
+  iiifContent="https://example.com/manifest/1"
+  options={{
+    informationPanel: {
+      defaultTab: "http://example.com/manifest/annotation/1",
+    },
+  }}
+/>
+```
+
+### Auto Scroll
+
+When VTT annotations are displayed, the Clover IIIF Viewer can automatically scroll the information panel to keep the currently active caption in view. Whether it does so (and how) is governed by the `informationPanel.vtt.autoScroll` configuration option. The possible values are:
+
+- `{ behavior: (behavior), block: (block) }`: auto-scroll using the given settings (see below).
+- `true`: Auto-scroll using the default behavior. This is equivalent to `{ behavior: "smooth", block: "center" }`.
+- `false`: Do not auto-scroll.
+
+The settings take the form `{ behavior: "auto" | "instant" | "smooth", block: "center" | "end" | "nearest" | "start" }`, and have the same effect as the `scrollIntoViewOptions` object documented with the [`Element.scrollIntoView()`](https://developer.mozilla.org/en-US/docs/Web/API/Element/scrollIntoView) Web API method. (The `inline` option does not apply since there is no horizontal scrolling involved.)
 
 ### Custom Displays
 
@@ -187,6 +281,53 @@ Clients may wish to use their own display components (for example a PDF Viewer, 
 | `customDisplays.display.componentProps` | `object`     | No       |         |
 | `customDisplays.target.canvasId`        | `string[]`   | No       |         |
 | `customDisplays.target.paintingFormat`  | `string[]`   | No       |         |
+
+### Content search
+
+Clover supports IIIF content search v2. In order to display content search in the information panel, add a content search service to the manifest.
+
+```json
+{
+  "@context": ["http://iiif.io/api/presentation/3/context.json"],
+  "type": "Manifest",
+  ...
+  "service": [
+    {
+      "id": "https://example.com/search",
+      "type": "SearchService2"
+    }
+  ]
+}
+```
+
+| Prop                                             | Type      | Required | Default  |
+| ------------------------------------------------ | --------- | -------- | -------- |
+| `iiifContentSearchQuery.q`                       | `string`  | No       |          |
+| `options.contentSearch.searchResultsLimit`       | `number`  | No       | 20       |
+| `options.contentSearch.overlays.backgroundColor` | `string`  | No       | #ff66660 |
+| `options.contentSearch.overlays.borderColor`     | `string`  | No       | #990000  |
+| `options.contentSearch.overlays.borderType`      | `string`  | No       | solid    |
+| `options.contentSearch.overlays.borderWidth`     | `string`  | No       | 1px      |
+| `options.contentSearch.overlays.opacity`         | `string`  | No       | 0.5      |
+| `options.contentSearch.overlays.renderOverlays`  | `boolean` | No       | true     |
+| `options.contentSearch.overlays.zoomLevel`       | `number`  | No       | 4        |
+
+Many sites have a search functionality that returns a list objects that match the search terms. Clicking on a search result will display a details page for one object. If you want to highlight the search terms when the Clover image viewer loads on the details page, use `iiifContentSearchQuery` when setting up the viewer.
+
+```jsx
+<Viewer
+  iiifContent="https://example.com/manifest/1"
+  iiifContentSearchQuery={{
+    q: "my search terms",
+  }}
+/>
+```
+
+`options.contentSearch.searchResultsLimit` is the maximum number of search results to display per canvas in the information panel. If set to `undefined`, Clover will show all search results.
+
+By default, Clover's content search will draw light red boxes in the image viewer for each search result returned by the search service. You can set the appearance of the highlighted boxes using `options.contentSearch.overlays`. If you don't want the search results to be highlighted, set `options.contentSearch.overlays.renderOverlays` to `false`.
+
+When you click on the list of search results, Clover will pan and zoom to the location of that search result. You can set the zoom level using `options.contentSearch.overlays.zoomLevel`. A small zoom level will zoom in real close; a large zoom level will zoom in less.
 
 ### Deprecated Options
 
@@ -267,7 +408,7 @@ export default function App() {
 
 ---
 
-### Custome Theme
+### Custom Theme
 
 You may choose to override the base theme by setting optional colors and fonts. Naming conventions for colors are limited to those shown in the config example below.
 
@@ -434,3 +575,214 @@ The `Viewer` component will pass the following props to your custom display comp
 ```
 
 [See a complete recipe for a PDF Viewer](https://github.com/samvera-labs/clover-iiif/blob/main/docs/components/CustomDisplays/PDFViewer.tsx) using custom canvas displays.
+
+---
+
+### Plugins
+
+Clover supports 3rd-party plugins as a way to add more functionality to Clover. To add plugins, use the `plugins` prop. `plugins` will accept an array of objects, with each object representing a plugin.
+
+People can use prebuilt plugins or create their own plugins. To install a prebuilt plugin, people should follow the instructions for the particular plugin.
+
+Here's an example of using two plugins. PluginA adds a button to `imageViewer.controls`. PluginB adds a tab to `informationPanel`.
+
+```tsx
+import PluginA from "plugin-A";
+import PluginB from "plugin-B";
+
+export default function App() {
+  return (
+    <Viewer
+      iiifContent={iiifContent}
+      plugins={[
+        {
+          id: "Plugin A",
+          imageViewer: {
+            controls: {
+              component: PluginA,
+            },
+          },
+        },
+        {
+          id: "Plugin B",
+          informationPanel: {
+            component: PluginB,
+            componentProps: {
+              objectId: 456,
+            },
+            label: { none: ["My Plugin"] },
+          },
+        },
+      ]}
+    />
+  );
+}
+```
+
+![plugin](/media/images/pluginUI.png)
+
+| Prop                                  | Type              | Required | Default |
+| ------------------------------------- | ----------------- | -------- | ------- |
+| `id`                                  | `string`          | yes      |         |
+| `imageViewer.controls`                | `object`          | No       |         |
+| `imageViewer.controls.component`      | `React Component` | yes      |         |
+| `imageViewer.controls.componentProps` | `object`          | no       |         |
+| `informationPanel`                    | `object`          | No       |         |
+| `informationPanel.component`          | `React Component` | yes      |         |
+| `informationPanel.componentProps`     | `object`          | no       |         |
+| `informationPanel.label`              | `object`          | yes      |         |
+
+`id` - unique id for the plugin
+
+`imageViewer.controls` - If you want to add a custom component to image viewer controls, use `imageViewer.controls`.
+
+`imageViewer.controls.component` - The component to render.
+
+`imageViewer.controls.componentProps` - Props passed to the controls component.
+
+`informationPanel` - If you want to add a custom component to the information panel, use `informationPanel`.
+
+`informationPanel.component` - The component to render.
+
+`informationPanel.componentProps` - Props passed to the information panel component.
+
+`informationPanel.label` - The text that is displayed in the tab.
+
+#### Instructions for creating a plugin
+
+Clover offers these features to support plugins:
+
+- Renders custom React components in certain areas of the Clover Viewer. Areas include image viewer controls and information panel.
+- Gives plugins the ability to access and change the state of the Clover Viewer via props
+- Pass in props to the plugin components
+
+| Prop                | Description                                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `canvas`            | active canvas object                                                                                                                  |
+| `useViewerDispatch` | React hook to update the [Viewer context store](https://github.com/samvera-labs/clover-iiif/blob/main/src/context/viewer-context.tsx) |
+| `useViewerState`    | React hook to access the [Viewer context store](https://github.com/samvera-labs/clover-iiif/blob/main/src/context/viewer-context.tsx) |
+
+Here is an example plugin that has both `imageViewer.controls` and `informationPanel`. Plugin components have access to canvas, useViewerDispatch, and useViewerState via props.
+
+![plugin](/media/images/pluginUI.png)
+
+```tsx
+// PluginButton.tsx
+
+export default function PluginButton(props) {
+  const { canvas, useViewerDispatch, useViewerState } = props;
+
+  // use useViewerState to access to viewer state properties such as openSeadragonViewer, etc
+  const viewerState = useViewerState();
+  const { openSeadragonViewer, activeManifest } = viewerState;
+
+  // use useViewerDispatch to update viewer state
+  const dispatch: any = useViewerDispatch();
+
+  function clickHandler() {
+    dispatch({
+      type: "updateOSDImageLoaded",
+      OSDImageLoaded: false,
+    });
+  }
+
+  return (
+    <button
+      onClick={clickHandler}
+      style={{
+        backgroundColor: "var(--colors-primary)",
+        borderRadius: "2rem",
+        width: "2rem",
+        margin: "0px 0px 0px 0.618rem",
+      }}
+    >
+      <b>P</b>
+    </button>
+  );
+}
+
+// PluginInfoPanel.tsx
+
+export default function PluginInfoPanel(props) {
+  const {
+    canvas,
+    useViewerDispatch,
+    useViewerState,
+
+    // componentProps
+    objectId,
+  } = props;
+
+  return (
+    <div style={{ padding: "0px 1.618rem 2rem" }}>
+      <p>Plugin Info Panel</p>
+      <p>objectId: {objectId}</p>
+    </div>
+  );
+}
+
+// App.tsx
+
+import PluginButton from "PluginButton";
+import PluginInfoPanel from "PluginInfoPanel";
+
+export default function App() {
+  return (
+    <Viewer
+      iiifContent="https://iiif.io/api/cookbook/recipe/0001-mvm-image/manifest.json"
+      plugins={[
+        {
+          id: "Demo",
+          imageViewer: {
+            controls: {
+              component: PluginButton,
+            },
+          },
+          informationPanel: {
+            component: PluginInfoPanel,
+            label: { none: ["My Plugin"] },
+            componentProps: {
+              objectId: 456,
+            },
+          },
+        },
+      ]}
+    />
+  );
+}
+```
+
+If the `imageViewer.controls.component` and `informationPanel.component` need to share state, wrap the Viewer in a context provider that is provided by the plugin.
+
+```tsx
+import PluginButton from "PluginButton";
+import PluginInfoPanel from "PluginInfoPanel";
+import { PluginProvider } from "PluginContext";
+
+export default function App() {
+  return (
+    <PluginProvider>
+      <Viewer
+        iiifContent="https://iiif.io/api/cookbook/recipe/0001-mvm-image/manifest.json"
+        plugins={[
+          {
+            id: "Demo",
+            imageViewer: {
+              controls: {
+                component: PluginButton,
+              },
+            },
+            informationPanel: {
+              component: PluginInfoPanel,
+              label: { none: ["My Plugin"] },
+              componentProps: {
+                objectId: 456,
+              },
+            },
+          },
+        ]}
+      />
+    </PluginProvider>
+  );
+}
+```

@@ -1,20 +1,28 @@
 import {
   Annotation,
   AnnotationNormalized,
+  IIIFExternalWebResource,
   type CanvasNormalized,
+  AnnotationPageNormalized,
 } from "@iiif/presentation-3";
 import OpenSeadragon from "openseadragon";
-import { type ViewerConfigOptions } from "src/context/viewer-context";
+import {
+  type OverlayOptions,
+  type ViewerConfigOptions,
+} from "src/context/viewer-context";
 import { OsdSvgOverlay } from "src/lib/openseadragon-svg";
 import { parseAnnotationTarget } from "src/lib/annotation-helpers";
 
 import { ParsedAnnotationTarget } from "src/types/annotations";
+import { getImageServiceURI } from "src/lib/iiif";
+import { OpenSeadragonImageTypes } from "src/types/open-seadragon";
 
 export function addOverlaysToViewer(
   viewer: OpenSeadragon.Viewer,
   canvas: CanvasNormalized,
-  configOptions: ViewerConfigOptions,
+  configOptions: OverlayOptions,
   annotations: Annotation[] | AnnotationNormalized[],
+  overlaySelector: string,
 ): void {
   if (!viewer) return;
 
@@ -35,6 +43,7 @@ export function addOverlaysToViewer(
         w * scale,
         h * scale,
         configOptions,
+        overlaySelector,
       );
     }
 
@@ -46,11 +55,11 @@ export function addOverlaysToViewer(
         </svg>
       `;
 
-      addSvgOverlay(viewer, svg, configOptions, scale);
+      addSvgOverlay(viewer, svg, configOptions, scale, overlaySelector);
     }
 
     if (svg) {
-      addSvgOverlay(viewer, svg, configOptions, scale);
+      addSvgOverlay(viewer, svg, configOptions, scale, overlaySelector);
     }
   });
 }
@@ -102,19 +111,20 @@ function addRectangularOverlay(
   y: number,
   w: number,
   h: number,
-  configOptions: ViewerConfigOptions,
+  configOptions: OverlayOptions,
+  overlaySelector: string,
 ): void {
   const rect = new OpenSeadragon.Rect(x, y, w, h);
   const div = document.createElement("div");
 
-  if (configOptions.annotationOverlays) {
+  if (configOptions) {
     const { backgroundColor, opacity, borderType, borderColor, borderWidth } =
-      configOptions.annotationOverlays;
+      configOptions;
 
     div.style.backgroundColor = backgroundColor as string;
     div.style.opacity = opacity as string;
     div.style.border = `${borderType} ${borderWidth} ${borderColor}`;
-    div.className = "annotation-overlay";
+    div.className = overlaySelector;
   }
 
   viewer.addOverlay(div, rect);
@@ -132,13 +142,14 @@ function convertSVGStringToHTML(svgString) {
 export function addSvgOverlay(
   viewer: any,
   svgString: string,
-  configOptions: ViewerConfigOptions,
+  configOptions: OverlayOptions,
   scale: number,
+  overlaySelector: string,
 ) {
   const svgEl = convertSVGStringToHTML(svgString);
   if (svgEl) {
     for (const child of svgEl.children) {
-      svg_processChild(viewer, child, configOptions, scale);
+      svg_processChild(viewer, child, configOptions, scale, overlaySelector);
     }
   }
 }
@@ -146,8 +157,9 @@ export function addSvgOverlay(
 function svg_processChild(
   viewer: any,
   child: ChildNode,
-  configOptions: ViewerConfigOptions,
+  configOptions: OverlayOptions,
   scale: number,
+  overlaySelector: string,
 ) {
   if (child.nodeName === "#text") {
     svg_handleTextNode(child);
@@ -155,18 +167,18 @@ function svg_processChild(
     const newElement = svg_handleElementNode(child, configOptions, scale);
     const overlay = OsdSvgOverlay(viewer);
     overlay.node().append(newElement);
-    overlay._svg?.setAttribute("class", "annotation-overlay");
+    overlay._svg?.setAttribute("class", overlaySelector);
 
     // BUG: svg with children elements aren't formated correctly.
     child.childNodes.forEach((child) => {
-      svg_processChild(viewer, child, configOptions, scale);
+      svg_processChild(viewer, child, configOptions, scale, overlaySelector);
     });
   }
 }
 
 export function svg_handleElementNode(
   child: any,
-  configOptions: ViewerConfigOptions,
+  configOptions: OverlayOptions,
   scale: number,
 ) {
   let hasStrokeColor = false;
@@ -201,20 +213,16 @@ export function svg_handleElementNode(
   }
 
   if (!hasStrokeColor) {
-    newElement.style.stroke = configOptions.annotationOverlays
-      ?.borderColor as string;
+    newElement.style.stroke = configOptions?.borderColor as string;
   }
   if (!hasStrokeWidth) {
-    newElement.style.strokeWidth = configOptions.annotationOverlays
-      ?.borderWidth as string;
+    newElement.style.strokeWidth = configOptions?.borderWidth as string;
   }
   if (!hasFillColor) {
-    newElement.style.fill = configOptions.annotationOverlays
-      ?.backgroundColor as string;
+    newElement.style.fill = configOptions?.backgroundColor as string;
   }
   if (!hasFillOpacity) {
-    newElement.style.fillOpacity = configOptions.annotationOverlays
-      ?.opacity as string;
+    newElement.style.fillOpacity = configOptions?.opacity as string;
   }
   newElement.setAttribute("transform", `scale(${scale})`);
 
@@ -236,4 +244,91 @@ function svg_handleTextNode(child: ChildNode) {
     ", childNodes.length",
     child.childNodes.length,
   );
+}
+
+export const parseImageBody = (body: IIIFExternalWebResource) => {
+  const hasImageService =
+    Array.isArray(body?.service) && body?.service.length > 0;
+
+  const uri = hasImageService ? getImageServiceURI(body?.service) : body?.id;
+  const imageType: OpenSeadragonImageTypes = hasImageService
+    ? OpenSeadragonImageTypes.TiledImage
+    : OpenSeadragonImageTypes.SimpleImage;
+
+  return {
+    uri,
+    imageType,
+  };
+};
+
+export const parseSrc = (src: string, isTiledImage: boolean) => {
+  const imageType = isTiledImage
+    ? OpenSeadragonImageTypes.TiledImage
+    : OpenSeadragonImageTypes.SimpleImage;
+
+  return {
+    uri: src,
+    imageType,
+  };
+};
+export function removeOverlaysFromViewer(
+  viewer: OpenSeadragon.Viewer,
+  overlaySelector: string,
+) {
+  if (!viewer) return;
+
+  if (!overlaySelector.startsWith(".")) {
+    overlaySelector = "." + overlaySelector;
+  }
+  const elements = document.querySelectorAll(overlaySelector);
+  if (elements) {
+    elements.forEach((element) => viewer.removeOverlay(element));
+  }
+}
+
+export function panToTarget(openSeadragonViewer, zoomLevel, target, canvas) {
+  const parsedAnnotationTarget = parseAnnotationTarget(target);
+
+  const { point, rect, svg } = parsedAnnotationTarget;
+
+  if (point || rect || svg) {
+    const rect = createOpenSeadragonRect(
+      canvas,
+      parsedAnnotationTarget,
+      zoomLevel,
+    );
+    openSeadragonViewer?.viewport.fitBounds(rect);
+  }
+}
+
+export function addContentSearchOverlays(
+  contentSearchVault: any,
+  contentSearch: AnnotationPageNormalized,
+  openSeadragonViewer,
+  canvas: CanvasNormalized,
+  configOptions: ViewerConfigOptions,
+) {
+  if (!contentSearch?.items) return;
+  if (contentSearch?.items.length === 0) return;
+
+  const annotations: Array<AnnotationNormalized> = [];
+  contentSearch.items.forEach((item) => {
+    const annotation = contentSearchVault.get(item.id) as AnnotationNormalized;
+
+    if (typeof annotation.target === "string") {
+      if (annotation.target.startsWith(canvas.id)) {
+        annotations.push(annotation as unknown as AnnotationNormalized);
+      }
+    }
+  });
+
+  if (openSeadragonViewer && configOptions.contentSearch?.overlays) {
+    addOverlaysToViewer(
+      openSeadragonViewer,
+      canvas,
+      configOptions.contentSearch.overlays,
+      annotations,
+      "content-search-overlay",
+    );
+  }
 }

@@ -4,34 +4,46 @@ import {
   type ViewerConfigOptions,
   ViewerProvider,
   defaultState,
+  expandAutoScrollOptions,
   useViewerDispatch,
   useViewerState,
   CustomDisplay,
+  PluginConfig,
 } from "src/context/viewer-context";
 
 import { Vault } from "@iiif/vault";
 import Viewer from "src/components/Viewer/Viewer/Viewer";
 import { createTheme } from "@stitches/react";
 import { getRequest } from "src/lib/xhr";
+import {
+  decodeContentStateContainerURI,
+  getActiveCanvas,
+  getActiveManifest,
+} from "src/lib/iiif";
+import { ContentSearchQuery } from "src/types/annotations";
 
 export interface CloverViewerProps {
   canvasIdCallback?: (arg0: string) => void;
   customDisplays?: Array<CustomDisplay>;
+  plugins?: Array<PluginConfig>;
   customTheme?: any;
   iiifContent: string;
   id?: string;
   manifestId?: string;
   options?: ViewerConfigOptions;
+  iiifContentSearchQuery?: ContentSearchQuery;
 }
 
 const CloverViewer: React.FC<CloverViewerProps> = ({
   canvasIdCallback = () => {},
   customDisplays = [],
+  plugins = [],
   customTheme,
   iiifContent,
   id,
   manifestId,
   options,
+  iiifContentSearchQuery,
 }) => {
   /**
    * Legacy `id` and `manifestId` prop support.
@@ -43,12 +55,18 @@ const CloverViewer: React.FC<CloverViewerProps> = ({
   if (id) iiifResource = id;
   if (manifestId) iiifResource = manifestId;
 
+  const autoScrollOptions = expandAutoScrollOptions(
+    options?.informationPanel?.vtt?.autoScroll,
+  );
+
   return (
     <ViewerProvider
       initialState={{
         ...defaultState,
         customDisplays,
-        informationOpen: Boolean(options?.informationPanel?.open),
+        plugins,
+        isAutoScrollEnabled: autoScrollOptions.enabled,
+        isInformationOpen: Boolean(options?.informationPanel?.open),
         vault: new Vault({
           customFetcher: (url: string) =>
             getRequest(url, {
@@ -63,6 +81,7 @@ const CloverViewer: React.FC<CloverViewerProps> = ({
         canvasIdCallback={canvasIdCallback}
         customTheme={customTheme}
         options={options}
+        iiifContentSearchQuery={iiifContentSearchQuery}
       />
     </ViewerProvider>
   );
@@ -73,6 +92,7 @@ const RenderViewer: React.FC<CloverViewerProps> = ({
   customTheme,
   iiifContent,
   options,
+  iiifContentSearchQuery,
 }) => {
   const dispatch: any = useViewerDispatch();
 
@@ -109,7 +129,7 @@ const RenderViewer: React.FC<CloverViewerProps> = ({
           setManifest(data);
           dispatch({
             type: "updateActiveCanvas",
-            canvasId: data.items[0] && data.items[0].id,
+            canvasId: getActiveCanvas(iiifContent, data),
           });
         })
         .catch((error: Error) => {
@@ -121,16 +141,16 @@ const RenderViewer: React.FC<CloverViewerProps> = ({
             isLoaded: true,
           });
         });
-  }, [activeManifest, dispatch, vault]);
+  }, [iiifContent, activeManifest, dispatch, vault]);
 
   useEffect(() => {
     dispatch({
       type: "updateConfigOptions",
       configOptions: options,
     });
-
+    const containerURI = decodeContentStateContainerURI(iiifContent);
     vault
-      .load(iiifContent)
+      .load(containerURI)
       .then((data: CollectionNormalized | ManifestNormalized) => {
         setIiifResource(data);
       })
@@ -142,22 +162,20 @@ const RenderViewer: React.FC<CloverViewerProps> = ({
   }, [dispatch, iiifContent, options, vault]);
 
   useEffect(() => {
-    let manifests: string[] = [];
-
     if (iiifResource?.type === "Collection") {
       dispatch({
         type: "updateCollection",
         collection: iiifResource,
       });
 
-      manifests = iiifResource.items
-        .filter((item) => item.type === "Manifest")
-        .map((manifest) => manifest.id);
-
-      if (manifests.length > 0) {
+      const manifestFromContentState = getActiveManifest(
+        iiifContent,
+        iiifResource,
+      );
+      if (manifestFromContentState) {
         dispatch({
           type: "updateActiveManifest",
-          manifestId: manifests[0],
+          manifestId: manifestFromContentState,
         });
       }
     } else if (iiifResource?.type === "Manifest") {
@@ -166,7 +184,7 @@ const RenderViewer: React.FC<CloverViewerProps> = ({
         manifestId: iiifResource.id,
       });
     }
-  }, [dispatch, iiifResource]);
+  }, [dispatch, iiifContent, iiifResource]);
 
   /**
    * Render loading component while manifest is fetched and
@@ -205,7 +223,14 @@ const RenderViewer: React.FC<CloverViewerProps> = ({
    * will will set the activeCanvas to the first index and render the
    * <Viewer/> component.
    */
-  return <Viewer manifest={manifest} theme={theme} key={manifest.id} />;
+  return (
+    <Viewer
+      manifest={manifest}
+      theme={theme}
+      key={manifest.id}
+      iiifContentSearchQuery={iiifContentSearchQuery}
+    />
+  );
 };
 
 export default CloverViewer;

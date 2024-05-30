@@ -6,31 +6,43 @@ import {
   Main,
   MediaWrapper,
 } from "src/components/Viewer/Viewer/Viewer.styled";
-import { Canvas, IIIFExternalWebResource } from "@iiif/presentation-3";
+import {
+  Canvas,
+  IIIFExternalWebResource,
+  AnnotationPageNormalized,
+} from "@iiif/presentation-3";
 
-import { AnnotationResources } from "src/types/annotations";
+import { AnnotationResources, AnnotationResource } from "src/types/annotations";
 import InformationPanel from "src/components/Viewer/InformationPanel/InformationPanel";
 import Media from "src/components/Viewer/Media/Media";
 import Painting from "../Painting/Painting";
 import React from "react";
 import { useViewerState } from "src/context/viewer-context";
 
-interface ViewerContentProps {
+export interface ViewerContentProps {
   activeCanvas: string;
   annotationResources: AnnotationResources;
-  isAudioVideo: boolean;
-  items: Canvas[];
+  searchServiceUrl?: string;
+  setContentSearchResource: React.Dispatch<
+    React.SetStateAction<AnnotationPageNormalized | undefined>
+  >;
+  contentSearchResource?: AnnotationResource;
   painting: IIIFExternalWebResource[];
+  items: Canvas[];
+  isAudioVideo: boolean;
 }
 
 const ViewerContent: React.FC<ViewerContentProps> = ({
   activeCanvas,
   annotationResources,
+  searchServiceUrl,
+  setContentSearchResource,
+  contentSearchResource,
   isAudioVideo,
   items,
   painting,
 }) => {
-  const { informationOpen, configOptions } = useViewerState();
+  const { isInformationOpen, configOptions } = useViewerState();
   const { informationPanel } = configOptions;
 
   /**
@@ -38,9 +50,12 @@ const ViewerContent: React.FC<ViewerContentProps> = ({
    * there is content (About or Supplementing Resources) to display.
    */
 
-  const isAside =
-    informationPanel?.renderAbout ||
-    (informationPanel?.renderAnnotation && annotationResources.length > 0);
+  const isAside = informationPanel?.renderAbout && isInformationOpen;
+
+  const isForcedAside =
+    informationPanel?.renderAnnotation &&
+    annotationResources.length > 0 &&
+    !informationPanel.open;
 
   return (
     <Content
@@ -57,7 +72,7 @@ const ViewerContent: React.FC<ViewerContentProps> = ({
 
         {isAside && (
           <CollapsibleTrigger>
-            <span>{informationOpen ? "View Items" : "More Information"}</span>
+            <span>{isInformationOpen ? "View Items" : "More Information"}</span>
           </CollapsibleTrigger>
         )}
 
@@ -67,12 +82,15 @@ const ViewerContent: React.FC<ViewerContentProps> = ({
           </MediaWrapper>
         )}
       </Main>
-      {informationOpen && isAside && (
+      {(isAside || isForcedAside) && (
         <Aside>
           <CollapsibleContent>
             <InformationPanel
               activeCanvas={activeCanvas}
               annotationResources={annotationResources}
+              searchServiceUrl={searchServiceUrl}
+              setContentSearchResource={setContentSearchResource}
+              contentSearchResource={contentSearchResource}
             />
           </CollapsibleContent>
         </Aside>

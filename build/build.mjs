@@ -5,6 +5,13 @@ import fs from "fs";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 const buildOptions = {
+  image: {
+    lib: {
+      name: "CloverIIIFImage",
+      entry: "./src/components/Image/index.tsx",
+      fileName: "index",
+    },
+  },
   primitives: {
     lib: {
       name: "CloverIIIFPrimitives",
@@ -23,6 +30,20 @@ const buildOptions = {
     lib: {
       name: "CloverIIIFSlider",
       entry: "./src/components/Slider/index.tsx",
+      fileName: "index",
+    },
+  },
+  scroll: {
+    lib: {
+      name: "CloverIIIFScroll",
+      entry: "./src/components/Scroll/index.tsx",
+      fileName: "index",
+    }
+  },
+  'helpers': {
+    lib: {
+      name: "CloverIIIFHelpers",
+      entry: "./src/lib/index.ts",
       fileName: "index",
     },
   },

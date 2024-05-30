@@ -5,5 +5,13 @@
       "sidebar": false
     },
     "title": "Demo"
+  },
+  "contentsearch": {
+    "display": "hidden",
+    "title": "Content Search",
+    "theme": {
+      "sidebar": false,
+      "layout": "full"
+    }
   }
 }

@@ -1,13 +1,16 @@
 import HomepageHeader from "docs/components/HomepageHeader";
 import Splash, { StyledGrid } from "docs/components/Splash/Splash";
 import SplashElement from "docs/components/Splash/Element";
-import Viewer from "docs/components/DynamicImports/Viewer";
+import Image from "docs/components/DynamicImports/Image";
+import Scroll from "docs/components/DynamicImports/Scroll";
 import Slider from "src/components/Slider";
+import Viewer from "docs/components/DynamicImports/Viewer";
 import {
   Homepage,
   Label,
   Metadata,
   PartOf,
+  Rendering,
   RequiredStatement,
   SeeAlso,
   Summary,
@@ -24,13 +27,13 @@ import "swiper/css/pagination";
 <HomepageHeader />
 <Splash>
   <SplashElement
-    css={{ height: "820px" }}
+    css={{ height: "860px" }}
     text="Viewer"
     component={
       <Viewer
         iiifContent="https://api.dc.library.northwestern.edu/api/v2/works/71153379-4283-43be-8b0f-4e7e3bfda275?as=iiif"
         options={{
-          canvasHeight: "600px",
+          canvasHeight: "500px",
           informationPanel: {
             open: true,
           }
@@ -44,6 +47,18 @@ import "swiper/css/pagination";
     ```
   </SplashElement>
   <SplashElement
+    text="Scroll"
+    css={{ height: "860px" }}
+    component={
+      <Scroll iiifContent="https://digital.lib.utk.edu/assemble/manifest/civilwar/5390" />
+    }
+    href="docs/scroll"
+  >
+    ```jsx
+    <Scroll iiifContent="https://digital.lib.utk.edu/assemble/manifest/civilwar/5390" />
+    ```
+  </SplashElement>
+  <SplashElement
     text="Slider"
     css={{ height: "600px" }}
     component={
@@ -53,6 +68,18 @@ import "swiper/css/pagination";
   >
     ```jsx
     <Slider iiifContent="https://api.dc.library.northwestern.edu/api/v2/collections/c373ecd2-2c45-45f2-9f9e-52dc244870bd?as=iiif" />
+    ```
+  </SplashElement>
+  <SplashElement
+    text="Image"
+    css={{ height: "600px" }}
+    component={
+      <Image src="https://iiif.dc.library.northwestern.edu/iiif/2/b6359e7f-070c-4c86-aee1-515e5b6604e2/full/full/0/default.jpg" />
+    }
+    href="docs/image"
+  >
+    ```jsx
+    <Image src="https://iiif.dc.library.northwestern.edu/iiif/2/b6359e7f-070c-4c86-aee1-515e5b6604e2/full/full/0/default.jpg" />
     ```
   </SplashElement>
   <StyledGrid>
@@ -278,6 +305,32 @@ import "swiper/css/pagination";
       >
         ```jsx
         <SeeAlso seeAlso={manifest.seeAlso} />
+        ```
+      </SplashElement>
+      <SplashElement
+        text="Rendering"
+        css={{ height: "14.6vh" }}
+        component={
+          <Rendering
+            className="clover-link"
+            rendering={[
+              {
+                id: "https://fixtures.iiif.io/other/UCLA/kabuki_ezukushi_rtl.pdf",
+                type: "Text",
+                label: {
+                  en: [
+                    "PDF version"
+                  ]
+                },
+                format: "application/pdf"
+              }
+            ]}
+          />
+        }
+        href="docs/rendering"
+      >
+        ```jsx
+        <Rendering rendering={manifest.rendering} />
         ```
       </SplashElement>
       <SplashElement

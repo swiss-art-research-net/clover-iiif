@@ -1,24 +1,34 @@
+import OpenSeadragon, { Options as OpenSeadragonOptions } from "openseadragon";
 import React, { useReducer } from "react";
 
-import { CollectionNormalized } from "@iiif/presentation-3";
+import {
+  CollectionNormalized,
+  InternationalString,
+} from "@iiif/presentation-3";
 import { IncomingHttpHeaders } from "http";
-import OpenSeadragon, { Options as OpenSeadragonOptions } from "openseadragon";
 import { Vault } from "@iiif/vault";
 import { deepMerge } from "src/lib/utils";
+import { v4 as uuidv4 } from "uuid";
+
+export type AutoScrollSettings = {
+  behavior: string; // ScrollBehavior ("auto" | "instant" | "smooth")
+  block: string; // ScrollLogicalPosition ("center" | "end" | "nearest" | "start")
+};
+
+export type AutoScrollOptions = {
+  enabled: boolean;
+  settings: AutoScrollSettings;
+};
 
 export type ViewerConfigOptions = {
-  annotationOverlays?: {
-    backgroundColor?: string;
-    borderColor?: string;
-    borderType?: string;
-    borderWidth?: string;
-    opacity?: string;
-    renderOverlays?: boolean;
-    zoomLevel?: number;
-  };
+  annotationOverlays?: OverlayOptions;
   background?: string;
   canvasBackgroundColor?: string;
   canvasHeight?: string;
+  contentSearch?: {
+    searchResultsLimit?: number;
+    overlays?: OverlayOptions;
+  };
   ignoreCaptionLabels?: string[];
   informationPanel?: {
     open?: boolean;
@@ -26,18 +36,48 @@ export type ViewerConfigOptions = {
     renderSupplementing?: boolean;
     renderToggle?: boolean;
     renderAnnotation?: boolean;
+    vtt?: {
+      autoScroll?: AutoScrollOptions | AutoScrollSettings | boolean;
+    };
+    renderContentSearch?: boolean;
+    defaultTab?: string;
   };
   openSeadragon?: OpenSeadragonOptions;
   requestHeaders?: IncomingHttpHeaders;
+  showDownload?: boolean;
   showIIIFBadge?: boolean;
   showTitle?: boolean;
   withCredentials?: boolean;
+  localeText?: {
+    contentSearch?: {
+      tabLabel?: string;
+      formPlaceholder?: string;
+      noSearchResults?: string;
+      loading?: string;
+      moreResults?: string;
+    };
+  };
+};
+
+export type OverlayOptions = {
+  backgroundColor?: string;
+  borderColor?: string;
+  borderType?: string;
+  borderWidth?: string;
+  opacity?: string;
+  renderOverlays?: boolean;
+  zoomLevel?: number;
+};
+
+const defaultAutoScrollSettings: AutoScrollSettings = {
+  behavior: "smooth",
+  block: "center",
 };
 
 const defaultConfigOptions = {
   annotationOverlays: {
-    backgroundColor: "#ff6666",
-    borderColor: "#990000",
+    backgroundColor: "#6666ff",
+    borderColor: "#000099",
     borderType: "solid",
     borderWidth: "1px",
     opacity: "0.5",
@@ -46,20 +86,49 @@ const defaultConfigOptions = {
   },
   background: "transparent",
   canvasBackgroundColor: "#6662",
-  canvasHeight: "61.8vh",
+  canvasHeight: "500px",
+  contentSearch: {
+    searchResultsLimit: 20,
+    overlays: {
+      backgroundColor: "#ff6666",
+      borderColor: "#990000",
+      borderType: "solid",
+      borderWidth: "1px",
+      opacity: "0.5",
+      renderOverlays: true,
+      zoomLevel: 4,
+    },
+  },
   ignoreCaptionLabels: [],
   informationPanel: {
+    vtt: {
+      autoScroll: {
+        enabled: true,
+        settings: defaultAutoScrollSettings,
+      },
+    },
     open: true,
     renderAbout: true,
     renderSupplementing: true,
     renderToggle: true,
     renderAnnotation: true,
+    renderContentSearch: true,
   },
   openSeadragon: {},
   requestHeaders: { "Content-Type": "application/json" },
+  showDownload: true,
   showIIIFBadge: true,
   showTitle: true,
   withCredentials: false,
+  localeText: {
+    contentSearch: {
+      tabLabel: "Search Results",
+      formPlaceholder: "Enter search words",
+      noSearchResults: "No search results",
+      loading: "Loading...",
+      moreResults: "more results",
+    },
+  },
 };
 
 export type CustomDisplay = {
@@ -72,17 +141,39 @@ export type CustomDisplay = {
     paintingFormat?: string[];
   };
 };
+export type PluginConfig = {
+  id: string;
+  imageViewer?: {
+    controls?: {
+      component: React.ElementType;
+      componentProps?: Record<string, unknown>;
+    };
+  };
+  informationPanel?: {
+    component: React.ElementType;
+    componentProps?: Record<string, unknown>;
+    label: InternationalString;
+  };
+};
 
 export interface ViewerContextStore {
   activeCanvas: string;
   activeManifest: string;
+  OSDImageLoaded?: boolean;
   collection?: CollectionNormalized | Record<string, never>;
   configOptions: ViewerConfigOptions;
   customDisplays: Array<CustomDisplay>;
-  informationOpen: boolean;
+  plugins: Array<PluginConfig>;
+  isAutoScrollEnabled?: boolean;
+  isAutoScrolling?: boolean;
+  isInformationOpen: boolean;
   isLoaded: boolean;
+  isUserScrolling?: number | undefined;
   vault: Vault;
+  contentSearchVault: Vault;
   openSeadragonViewer: OpenSeadragon.Viewer | null;
+  openSeadragonId?: string;
+  viewerId?: string;
 }
 
 export interface ViewerAction {
@@ -90,23 +181,63 @@ export interface ViewerAction {
   canvasId: string;
   collection: CollectionNormalized;
   configOptions: ViewerConfigOptions;
-  informationOpen: boolean;
+  isAutoScrollEnabled: boolean;
+  isAutoScrolling: boolean;
+  isInformationOpen: boolean;
   isLoaded: boolean;
+  isUserScrolling: number | undefined;
   manifestId: string;
+  OSDImageLoaded?: boolean;
   vault: Vault;
+  contentSearchVault: Vault;
   openSeadragonViewer: OpenSeadragon.Viewer;
+  viewerId: string;
 }
+
+export function expandAutoScrollOptions(
+  value: AutoScrollOptions | AutoScrollSettings | boolean | undefined,
+): AutoScrollOptions {
+  let result: AutoScrollOptions = {
+    ...defaultConfigOptions.informationPanel.vtt.autoScroll,
+  };
+  if (typeof value === "object") {
+    result = "enabled" in value ? value : { enabled: true, settings: value };
+  }
+  if (value === false) result.enabled = false;
+  validateAutoScrollSettings(result.settings);
+  return result;
+}
+
+function validateAutoScrollSettings({ behavior, block }: AutoScrollSettings) {
+  const validBehaviors = ["auto", "instant", "smooth"];
+  const validPositions = ["center", "end", "nearest", "start"];
+  if (!validBehaviors.includes(behavior))
+    throw TypeError(`'${behavior}' not in ${validBehaviors.join(" | ")}`);
+  if (!validPositions.includes(block))
+    throw TypeError(`'${block}' not in ${validPositions.join(" | ")}`);
+}
+
+const expandedAutoScrollOptions = expandAutoScrollOptions(
+  defaultConfigOptions?.informationPanel?.vtt?.autoScroll,
+);
 
 export const defaultState: ViewerContextStore = {
   activeCanvas: "",
   activeManifest: "",
+  OSDImageLoaded: false,
   collection: {},
   configOptions: defaultConfigOptions,
   customDisplays: [],
-  informationOpen: defaultConfigOptions?.informationPanel?.open,
+  plugins: [],
+  isAutoScrollEnabled: expandedAutoScrollOptions.enabled,
+  isAutoScrolling: false,
+  isInformationOpen: defaultConfigOptions?.informationPanel?.open,
   isLoaded: false,
+  isUserScrolling: undefined,
   vault: new Vault(),
+  contentSearchVault: new Vault(),
   openSeadragonViewer: null,
+  viewerId: uuidv4(),
 };
 
 const ViewerStateContext =
@@ -132,6 +263,24 @@ function viewerReducer(state: ViewerContextStore, action: ViewerAction) {
         activeManifest: action.manifestId,
       };
     }
+    case "updateOSDImageLoaded": {
+      return {
+        ...state,
+        OSDImageLoaded: action.OSDImageLoaded,
+      };
+    }
+    case "updateAutoScrollAnnotationEnabled": {
+      return {
+        ...state,
+        isAutoScrollEnabled: action.isAutoScrollEnabled,
+      };
+    }
+    case "updateAutoScrolling": {
+      return {
+        ...state,
+        isAutoScrolling: action.isAutoScrolling,
+      };
+    }
     case "updateCollection": {
       return {
         ...state,
@@ -147,7 +296,7 @@ function viewerReducer(state: ViewerContextStore, action: ViewerAction) {
     case "updateInformationOpen": {
       return {
         ...state,
-        informationOpen: action.informationOpen,
+        isInformationOpen: action.isInformationOpen,
       };
     }
     case "updateIsLoaded": {
@@ -156,10 +305,22 @@ function viewerReducer(state: ViewerContextStore, action: ViewerAction) {
         isLoaded: action.isLoaded,
       };
     }
+    case "updateUserScrolling": {
+      return {
+        ...state,
+        isUserScrolling: action.isUserScrolling,
+      };
+    }
     case "updateOpenSeadragonViewer": {
       return {
         ...state,
         openSeadragonViewer: action.openSeadragonViewer,
+      };
+    }
+    case "updateViewerId": {
+      return {
+        ...state,
+        viewerId: action.viewerId,
       };
     }
     default: {
